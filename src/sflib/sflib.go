@@ -12,6 +12,14 @@ type Heartbeat struct {
 	Error string `json:"error"`
 }
 
+type StockfighterClient struct {
+	httpclient http.Client
+	api_key    string
+}
+
+func (this *StockfighterClient) GetHeartbeat() {
+}
+
 func GetHeartbeat() (Heartbeat, error) {
 	//resp, err := http.Get("http://example.com/")
 	//resp, err := http.Post("http://example.com/upload", "image/jpeg", &buf)
