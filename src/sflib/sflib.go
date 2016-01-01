@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 )
 
 type Heartbeat struct {
@@ -22,8 +23,15 @@ type StockSymbol struct {
 }
 
 type VenueStocks struct {
-	Ok      bool
+	Ok      bool `json:"ok"`
 	Symbols []StockSymbol
+}
+
+type StockQuote struct {
+	Ok                                                             bool
+	Symbol, Venue                                                  string
+	Bid, Ask, BidSize, AskSize, BidDepth, AskDepth, Last, LastSize int
+	LastTrade, QuoteTime                                           time.Time
 }
 
 type StockfighterClient struct {
@@ -105,4 +113,26 @@ func (this *StockfighterClient) GetVenueStocks(venue string) (VenueStocks, error
 		return vs, err
 	}
 	return vs, err
+}
+
+func (this *StockfighterClient) GetQuote(venue, symbol string) (StockQuote, error) {
+	var sq StockQuote
+	req, err := http.NewRequest("GET",
+		fmt.Sprintf("https://api.stockfighter.io/ob/api/venues/%s/stocks/%s/quote", venue, symbol),
+		nil)
+	req.Header.Add("X-Starfighter-Authorization", this.Api_key)
+	resp, err := this.httpclient.Do(req)
+	if err != nil {
+		return sq, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return sq, err
+	}
+	err = json.Unmarshal(body, &sq)
+	if err != nil {
+		return sq, err
+	}
+	return sq, nil
 }

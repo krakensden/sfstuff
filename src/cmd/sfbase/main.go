@@ -38,5 +38,17 @@ func main() {
 	fmt.Println("Available stocks")
 	for _, i := range vs.Symbols {
 		fmt.Println("Venue is ", i.Name, " :: ", i.Symbol)
+
+		// Get Quote
+		sq, err := sfc.GetQuote(os.Getenv("STOCKFIGHTER_VENUE"), i.Symbol)
+		if err != nil || !sq.Ok {
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Println("Quote request error")
+			}
+			os.Exit(3)
+		}
+		fmt.Println(sq.Symbol, sq.Venue, sq.Bid, sq.Ask)
 	}
 }
