@@ -7,7 +7,10 @@ import (
 )
 
 func main() {
-	hb, err := sflib.GetHeartbeat()
+	sfc := &sflib.StockfighterClient{
+		Api_key: os.Getenv("STARFIGHTER_KEY"),
+	}
+	hb, err := sfc.GetHeartbeat()
 	if err != nil {
 		fmt.Println(err)
 		return

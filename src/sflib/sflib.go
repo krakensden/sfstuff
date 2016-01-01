@@ -14,20 +14,15 @@ type Heartbeat struct {
 
 type StockfighterClient struct {
 	httpclient http.Client
-	api_key    string
+	Api_key    string
 }
 
-func (this *StockfighterClient) GetHeartbeat() {
-}
-
-func GetHeartbeat() (Heartbeat, error) {
-	//resp, err := http.Get("http://example.com/")
-	//resp, err := http.Post("http://example.com/upload", "image/jpeg", &buf)
-	//resp, err := http.PostForm("http://example.com/form",
-	//		url.Values{"key": {"Value"}, "id": {"123"}})
-
+func (this *StockfighterClient) GetHeartbeat() (Heartbeat, error) {
 	var hb Heartbeat
-	resp, err := http.Get("https://api.stockfighter.io/ob/api/heartbeat")
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", "https://api.stockfighter.io/ob/api/heartbeat", nil)
+	req.Header.Add("X-Starfighter-Authorization", this.Api_key)
+	resp, err := client.Do(req)
 	if err != nil {
 		return hb, err
 	}
