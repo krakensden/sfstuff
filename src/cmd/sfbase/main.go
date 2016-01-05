@@ -19,6 +19,7 @@ func main() {
 		os.Exit(1)
 		return
 	}
+	fmt.Println("Raw venue is", os.Getenv("STOCKFIGHTER_VENUE"))
 	cv, err := sfc.CheckVenue(os.Getenv("STOCKFIGHTER_VENUE"))
 	if err != nil || !cv.Ok {
 		if err != nil {
@@ -49,6 +50,6 @@ func main() {
 			}
 			os.Exit(3)
 		}
-		fmt.Println(sq.Symbol, sq.Venue, sq.Bid, sq.Ask)
+		fmt.Printf("%s@%s B:%d A:%d\n", sq.Symbol, sq.Venue, sq.Bid, sq.Ask)
 	}
 }
