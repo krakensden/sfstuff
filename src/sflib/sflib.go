@@ -1,10 +1,13 @@
 package sflib
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -24,6 +27,7 @@ type StockSymbol struct {
 
 type VenueStocks struct {
 	Ok      bool `json:"ok"`
+	Venue   *string
 	Symbols []StockSymbol
 }
 
@@ -32,6 +36,56 @@ type StockQuote struct {
 	Symbol, Venue                                                  string
 	Bid, Ask, BidSize, AskSize, BidDepth, AskDepth, Last, LastSize int
 	LastTrade, QuoteTime                                           time.Time
+}
+
+type OrderType string
+
+const (
+	Market     = OrderType("market")
+	Limit      = OrderType("limit")
+	FillOrKill = OrderType("fill-or-kill")
+	Immediate  = OrderType("immediate-or-cancel")
+)
+
+type Direction string
+
+const (
+	Buy  = Direction("buy")
+	Sell = Direction("sell")
+)
+
+type Order struct {
+	Account   string    `json:"account"`
+	Venue     string    `json:"venue"`
+	Stock     string    `json:"stock"`
+	Direction Direction `json:"direction"`
+	OrderType OrderType `json:"ordertype"`
+	Price     int       `json:"price"`
+	Qty       int       `json:"qty"`
+}
+
+type Fill struct {
+	Price int    `json:"price"`
+	Qty   int    `json:"qty"`
+	Ts    string `json:"ts"`
+}
+
+type OrderResponse struct {
+	Ok          bool      `json:"ok"`
+	Open        bool      `json:"open"`
+	Error       string    `json:"error"`
+	Account     string    `json:"account"`
+	Venue       string    `json:"venue"`
+	Ts          string    `json:"ts"` // ISO-8601 Timestamp. Not ready to commit to actually parsing this yet ...
+	Symbol      string    `json"symbol"`
+	Id          int       `json:"id"`
+	TotalFilled int       `json:"totalFilled"`
+	Price       int       `json:"price"`
+	OriginalQty int       `json:"originalQty"`
+	Qty         int       `json:"qty"`
+	Direction   Direction `json:"direction"`
+	OrderType   OrderType `json:"orderType"`
+	Fills       []Fill    `json:"fills"`
 }
 
 type StockfighterClient struct {
@@ -95,6 +149,7 @@ func (this *StockfighterClient) CheckVenue(venue string) (CheckVenue, error) {
 
 func (this *StockfighterClient) GetVenueStocks(venue string) (VenueStocks, error) {
 	var vs VenueStocks
+	vs.Venue = &venue
 	req, err := http.NewRequest("GET",
 		fmt.Sprintf("https://api.stockfighter.io/ob/api/venues/%s/stocks", venue),
 		nil)
@@ -113,6 +168,129 @@ func (this *StockfighterClient) GetVenueStocks(venue string) (VenueStocks, error
 		return vs, err
 	}
 	return vs, err
+}
+
+type OrderStatus struct {
+	Ok          bool      `json:"ok"`
+	Error       string    `json:"error"`
+	Symbol      string    `json:"symbol"`
+	Venue       string    `json:"venue"`
+	Direction   Direction `json:"direction"`
+	OriginalQty int       `json:"originalQty"`
+	Qty         int       `json:"qty"`
+	Price       int       `json:"price"`
+	OrderType   OrderType `json:"orderType"`
+	Id          int       `json:"id"`
+	Account     string    `json:"account"`
+	Ts          time.Time `json:"ts"`
+	Fills       []Fill    `json:"fills"`
+	TotalFilled int       `json:"totalFilled"`
+	Open        bool      `json:"open"`
+}
+
+type StockOrders struct {
+	Ok     bool          `json:"ok"`
+	Venue  string        `json:"venue"`
+	Error  string        `json:"error"`
+	Orders []OrderStatus `json:"orders"`
+}
+
+func (this *StockfighterClient) CheckAllOrderStatus(venue, account, stock string) (StockOrders, error) {
+	var so StockOrders
+	fmt.Println("Venue ", venue, " account ", account, " stock ", stock)
+	req, err := http.NewRequest("GET",
+		fmt.Sprintf("https://api.stockfighter.io/ob/api/venues/%s/accounts/%s/stocks/%s/orders", venue, account, stock),
+		nil)
+	req.Header.Add("X-Starfighter-Authorization", this.Api_key)
+	resp, err := this.httpclient.Do(req)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "HTTP Req failed", err)
+		return so, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "reading the body of the reply failed", err)
+		return so, err
+	}
+	err = json.Unmarshal(body, &so)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Unmarshalling failed ", err)
+		fmt.Fprintln(os.Stderr, "Got ", string(body))
+		return so, err
+	}
+	if so.Error != "" {
+		return so, errors.New(fmt.Sprintf("API Error: ", so.Error))
+	}
+	return so, err
+}
+
+func (this *StockfighterClient) CheckOrderStatus(venue, stock string, id int) (OrderStatus, error) {
+	var os OrderStatus
+	req, err := http.NewRequest("GET",
+		fmt.Sprintf("https://api.stockfighter.io/ob/api/venues/%s/stocks/%s/orders/%d", venue, stock, id),
+		nil)
+	req.Header.Add("X-Starfighter-Authorization", this.Api_key)
+	resp, err := this.httpclient.Do(req)
+	if err != nil {
+		return os, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return os, err
+	}
+	err = json.Unmarshal(body, &os)
+	if err != nil {
+		return os, err
+	}
+	return os, err
+}
+
+func (this *StockfighterClient) PostOrder(venue, symbol, account string, qty, price int, direction Direction, order_type OrderType) (*OrderResponse, error) {
+	var order Order
+	var response *OrderResponse = &OrderResponse{}
+	order.Account = account
+	order.Venue = venue
+	order.Stock = symbol
+	order.Direction = direction
+	order.OrderType = order_type
+	order.Price = price
+	order.Qty = qty
+
+	//fmt.Println("Quantity ", qty, " Price ", price)
+
+	rb, err := json.Marshal(order)
+	if err != nil {
+		fmt.Sprintf("Could not marshall the order type (!)", err)
+		return nil, err
+	}
+	req, err := http.NewRequest("POST",
+		fmt.Sprintf("https://api.stockfighter.io/ob/api/venues/%s/stocks/%s/orders", venue, symbol),
+		bytes.NewBuffer(rb))
+	req.Header.Add("X-Starfighter-Authorization", this.Api_key)
+	resp, err := this.httpclient.Do(req)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "http post failed")
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "body read failed")
+		return nil, err
+	}
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "unmarshalling failed")
+		return response, err
+	}
+	if response.Error != "" {
+		fmt.Fprintln(os.Stderr, "got an error from the API", response.Error)
+		return response, errors.New(response.Error)
+	}
+
+	return response, nil
 }
 
 func (this *StockfighterClient) GetQuote(venue, symbol string) (StockQuote, error) {
@@ -135,4 +313,38 @@ func (this *StockfighterClient) GetQuote(venue, symbol string) (StockQuote, erro
 		return sq, err
 	}
 	return sq, nil
+}
+
+func Setup() (sfc *StockfighterClient, vs *VenueStocks, err error) {
+	sfc = NewStockfighterClient(os.Getenv("STARFIGHTER_KEY"))
+	hb, err := sfc.GetHeartbeat()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Hearbeat failure ", err)
+		return
+	}
+	fmt.Fprintln(os.Stderr, "Heartbeat API is OK", hb.Ok)
+	if !hb.Ok {
+		fmt.Fprintln(os.Stderr, hb.Error)
+		return
+	}
+	fmt.Fprintln(os.Stderr, "Raw venue is", os.Getenv("STOCKFIGHTER_VENUE"))
+	cv, err := sfc.CheckVenue(os.Getenv("STOCKFIGHTER_VENUE"))
+	if err != nil || !cv.Ok {
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Connectivity broken", err)
+		}
+		fmt.Fprintln(os.Stderr, "Venue isn't up")
+		return
+	}
+	fmt.Fprintln(os.Stderr, "Venue is ", cv.Venue)
+	// Get stocks
+	vs_lit, err := sfc.GetVenueStocks(os.Getenv("STOCKFIGHTER_VENUE"))
+	vs = &vs_lit
+	if err != nil || !vs.Ok {
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Connectivity broken", err)
+		}
+		fmt.Fprintln(os.Stderr, "Venue isn't up")
+	}
+	return
 }
