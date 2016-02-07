@@ -23,6 +23,7 @@ func main() {
 	}
 
 	var orders []int
+	orders = append(orders, -1)
 	var filled_qty, last_filled_qty int = 0, 0
 
 	no_such_stock := true
@@ -66,7 +67,7 @@ func main() {
 			orders, new_filled_qty := cull_dead_orders(client, *stocks.Venue, target, orders)
 			filled_qty += new_filled_qty
 
-			if len(orders) > 5 {
+			if len(orders) > 2 {
 				continue
 			}
 
@@ -101,12 +102,16 @@ func cull_dead_orders(client *sflib.StockfighterClient, venue string, stock stri
 	qty_purchased := 0
 
 	for _, order_id := range orders {
+		if order_id == -1 {
+			continue
+		}
 		// check order
 		orderstatus, err := client.CheckOrderStatus(venue, stock, order_id)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			continue
 		}
+		fmt.Println("order is open ", orderstatus)
 		if !orderstatus.Open {
 			for _, f := range orderstatus.Fills {
 				qty_purchased += f.Qty

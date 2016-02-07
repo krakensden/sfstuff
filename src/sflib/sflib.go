@@ -182,7 +182,7 @@ type OrderStatus struct {
 	OrderType   OrderType `json:"orderType"`
 	Id          int       `json:"id"`
 	Account     string    `json:"account"`
-	Ts          time.Time `json:"ts"`
+	Ts          string    `json:"ts"`
 	Fills       []Fill    `json:"fills"`
 	TotalFilled int       `json:"totalFilled"`
 	Open        bool      `json:"open"`
@@ -233,15 +233,19 @@ func (this *StockfighterClient) CheckOrderStatus(venue, stock string, id int) (O
 	req.Header.Add("X-Starfighter-Authorization", this.Api_key)
 	resp, err := this.httpclient.Do(req)
 	if err != nil {
+		fmt.Println("Order http request failed")
 		return os, err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		fmt.Println("Could not read order status response")
 		return os, err
 	}
+	fmt.Println("could not unmarshal order status", string(body))
 	err = json.Unmarshal(body, &os)
 	if err != nil {
+		fmt.Println("could not unmarshal order status", string(body))
 		return os, err
 	}
 	return os, err
