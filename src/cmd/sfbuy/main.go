@@ -23,8 +23,7 @@ func main() {
 	}
 
 	var orders []int
-	orders = append(orders, -1)
-	var filled_qty, last_filled_qty int = 0, 0
+	//var filled_qty, last_filled_qty int = 0, 0
 
 	no_such_stock := true
 	for _, symbol := range stocks.Symbols {
@@ -39,6 +38,11 @@ func main() {
 			fmt.Fprint(os.Stderr, symbol, ", ")
 		}
 		fmt.Fprintln(os.Stderr)
+	}
+
+	err = clear_old_orders(client, *stocks.Venue, account, target)
+	if err != nil {
+		os.Exit(5)
 	}
 
 	for {
@@ -64,19 +68,12 @@ func main() {
 			}
 		case r := <-results:
 
-			orders, new_filled_qty := cull_dead_orders(client, *stocks.Venue, target, orders)
-			filled_qty += new_filled_qty
+			orders, _ = cull_dead_orders(client, *stocks.Venue, target, orders)
 
-			if len(orders) > 2 {
+			if len(orders) > 1 {
 				continue
 			}
 
-			if last_filled_qty != filled_qty {
-				fmt.Println(len(orders), " outstanding orders")
-				fmt.Println(filled_qty, " purchased shares")
-				last_filled_qty = filled_qty
-			}
-			//fmt.Printf("%s@%s B:%d A:%d\n", r.Symbol, r.Venue, r.Bid, r.Ask)
 			if (r.Ask < target_price && r.Ask != 0) || (r.Last < target_price) {
 				order_type := sflib.Limit
 
@@ -87,16 +84,26 @@ func main() {
 					fmt.Fprintln(os.Stderr, err)
 				} else {
 					fmt.Print(".")
-					//fmt.Fprintf(os.Stdout, "Got %d @ %d of %s via %s\n", oresp.Qty, oresp.Price, oresp.Symbol, order_type)
-					for _, fill := range oresp.Fills {
-						fmt.Fprintf(os.Stdout, "Filled %d units @ $%d @ %s", fill.Qty, fill.Price, fill.Ts)
-					}
 				}
 			}
 		}
 	}
 }
 
+func clear_old_orders(client *sflib.StockfighterClient, venue string, account string, stock string) error {
+	sq, err := client.CheckAllOrderStatus(venue, account, stock)
+	for _, order := range sq.Orders {
+		if order.Open {
+			fmt.Println("Clearing order ", order)
+			client.CancelOrder(venue, stock, order.Id)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return err
+			}
+		}
+	}
+	return err
+}
 func cull_dead_orders(client *sflib.StockfighterClient, venue string, stock string, orders []int) ([]int, int) {
 	var rval []int
 	qty_purchased := 0
@@ -111,7 +118,6 @@ func cull_dead_orders(client *sflib.StockfighterClient, venue string, stock stri
 			fmt.Fprintln(os.Stderr, err)
 			continue
 		}
-		fmt.Println("order is open ", orderstatus)
 		if !orderstatus.Open {
 			for _, f := range orderstatus.Fills {
 				qty_purchased += f.Qty

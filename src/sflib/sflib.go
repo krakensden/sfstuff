@@ -172,7 +172,7 @@ func (this *StockfighterClient) GetVenueStocks(venue string) (VenueStocks, error
 
 type OrderStatus struct {
 	Ok          bool      `json:"ok"`
-	Error       string    `json:"error"`
+	Error       *string   `json:"error"`
 	Symbol      string    `json:"symbol"`
 	Venue       string    `json:"venue"`
 	Direction   Direction `json:"direction"`
@@ -182,7 +182,7 @@ type OrderStatus struct {
 	OrderType   OrderType `json:"orderType"`
 	Id          int       `json:"id"`
 	Account     string    `json:"account"`
-	Ts          string    `json:"ts"`
+	Ts          time.Time `json:"ts"`
 	Fills       []Fill    `json:"fills"`
 	TotalFilled int       `json:"totalFilled"`
 	Open        bool      `json:"open"`
@@ -225,8 +225,36 @@ func (this *StockfighterClient) CheckAllOrderStatus(venue, account, stock string
 	return so, err
 }
 
+func (this *StockfighterClient) CancelOrder(venue, stock string, id int) (OrderStatus, error) {
+	var ost OrderStatus
+	req, err := http.NewRequest("DELETE",
+		fmt.Sprintf("https://api.stockfighter.io/ob/api/venues/%s/stocks/%s/orders/%d", venue, stock, id),
+		nil)
+	req.Header.Add("X-Starfighter-Authorization", this.Api_key)
+	resp, err := this.httpclient.Do(req)
+	if err != nil {
+		fmt.Println("Order http request failed")
+		return ost, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Could not read order status response")
+		return ost, err
+	}
+	err = json.Unmarshal(body, &ost)
+	if err != nil {
+		fmt.Println("could not unmarshal order status", string(body))
+		return ost, err
+	}
+	if ost.Error != nil {
+		return ost, errors.New(*ost.Error)
+	}
+	return ost, err
+}
+
 func (this *StockfighterClient) CheckOrderStatus(venue, stock string, id int) (OrderStatus, error) {
-	var os OrderStatus
+	var ost OrderStatus
 	req, err := http.NewRequest("GET",
 		fmt.Sprintf("https://api.stockfighter.io/ob/api/venues/%s/stocks/%s/orders/%d", venue, stock, id),
 		nil)
@@ -234,21 +262,23 @@ func (this *StockfighterClient) CheckOrderStatus(venue, stock string, id int) (O
 	resp, err := this.httpclient.Do(req)
 	if err != nil {
 		fmt.Println("Order http request failed")
-		return os, err
+		return ost, err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Could not read order status response")
-		return os, err
+		return ost, err
 	}
-	fmt.Println("could not unmarshal order status", string(body))
-	err = json.Unmarshal(body, &os)
+	err = json.Unmarshal(body, &ost)
 	if err != nil {
 		fmt.Println("could not unmarshal order status", string(body))
-		return os, err
+		return ost, err
 	}
-	return os, err
+	if ost.Error != nil {
+		return ost, errors.New(*ost.Error)
+	}
+	return ost, err
 }
 
 func (this *StockfighterClient) PostOrder(venue, symbol, account string, qty, price int, direction Direction, order_type OrderType) (*OrderResponse, error) {
