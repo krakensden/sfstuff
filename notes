@@ -1,25 +1,10 @@
 # trades.exec
 
-Intro docs:
-
-	Congrats on being employed at RedBrain Securities. We're sure you'll love it here. You have been granted control over account RBS3525732 and have full authority to conduct trades on it... subject to the not-so-watchful eye of our risk management desk, naturally.
-	First order of business: This is a blotter interface. It connects your terminal to DullLaw London Board of Exchange (DLLBEX), a well-regarded stock exchange. We've pre-loaded it to track your first assignment, the shares of RiverBird Ltd. (RBL).
-
-which is kind of fantastic
-
-Initial persistent API key: b86472dcdda83530a5010c1c7ba30bb62084bcd1
-
 Web page to get keys: https://www.stockfighter.io/ui/api_keys
 
+binaries:
 
-Stockfighter scene two:
-THE85963920
-
-they want you to purchase them 100,000 shares of VHOY Ltd
-
-On this level, one trading day in the simulated world corresponds to about five seconds of wall-clock time
-
-Purchase 100,000 shares of VHOY.
-Avoid causing a "price impact" -- our client wants these shares for the cheapest price possible, naturally.
-
-
+ * sfbase (test/toy thing)
+ * sfbuy buy shares @ target price
+ * sfticker ghrotty terminal ticker
+ * sfscores 'back office' summarizer
