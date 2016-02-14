@@ -8,3 +8,7 @@ binaries:
  * sfbuy buy shares @ target price
  * sfticker ghrotty terminal ticker
  * sfscores 'back office' summarizer
+
+web sites
+
+ * html/index "how do you even" with google chart API
