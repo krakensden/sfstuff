@@ -1,0 +1,12 @@
+{
+	"version": 0,
+	"dependencies": [
+		{
+			"importpath": "golang.org/x/net/websocket",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "cbbbe2bc0f2efdd2afb318d93f1eadb19350e4a3",
+			"branch": "master",
+			"path": "/websocket"
+		}
+	]
+}
