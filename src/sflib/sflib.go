@@ -31,11 +31,24 @@ type VenueStocks struct {
 	Symbols []StockSymbol
 }
 
-type StockQuote struct {
-	Ok                                                             bool
+type Quote struct {
 	Symbol, Venue                                                  string
 	Bid, Ask, BidSize, AskSize, BidDepth, AskDepth, Last, LastSize int
 	LastTrade, QuoteTime                                           time.Time
+}
+
+// https://starfighter.readme.io/docs/a-quote-for-a-stock
+type StockQuote struct {
+	Ok bool
+	Quote
+}
+
+// https://starfighter.readme.io/docs/quotes-ticker-tape-websocket
+// every-so-slightly different interface than the polling quote interface,
+// for whatever reason- nested quote object instead of embedded
+type StreamingStockQuote struct {
+	Ok    bool
+	quote Quote
 }
 
 type OrderType string
