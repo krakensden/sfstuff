@@ -19,6 +19,7 @@ type Heartbeat struct {
 type CheckVenue struct {
 	Ok    bool   `json:"ok"`
 	Venue string `json:"venue"`
+	Error string `json:"error"`
 }
 
 type StockSymbol struct {
@@ -29,6 +30,7 @@ type VenueStocks struct {
 	Ok      bool `json:"ok"`
 	Venue   *string
 	Symbols []StockSymbol
+	Error   string `json:"error"`
 }
 
 type Quote struct {
@@ -379,6 +381,8 @@ func Setup() (sfc *StockfighterClient, vs *VenueStocks, err error) {
 	if err != nil || !cv.Ok {
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Connectivity broken", err)
+		} else {
+			err = errors.New(cv.Error)
 		}
 		fmt.Fprintln(os.Stderr, "Venue isn't up")
 		return
@@ -390,6 +394,8 @@ func Setup() (sfc *StockfighterClient, vs *VenueStocks, err error) {
 	if err != nil || !vs.Ok {
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Connectivity broken", err)
+		} else {
+			err = errors.New(vs.Error)
 		}
 		fmt.Fprintln(os.Stderr, "Venue isn't up")
 	}
