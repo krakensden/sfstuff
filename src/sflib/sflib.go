@@ -33,6 +33,23 @@ type VenueStocks struct {
 	Error   string `json:"error"`
 }
 
+type Level struct {
+	Account  string   `json:"account"`
+	Balances struct { // XXX Can you poll for this?
+		USD float64 `json:"USD"`
+	} `json:"balances"`
+	InstanceId   float64 `json:"instanceId"`
+	Instructions struct {
+		Instructions string `json:"Instructions"`
+		Order_Types  string `json:"Order Types"`
+	} `json:"instructions"`
+	Ok                   bool     `json:"ok"`
+	Error                string   `json:"error"`
+	SecondsPerTradingDay float64  `json:"secondsPerTradingDay"`
+	Tickers              []string `json:"tickers"`
+	Venues               []string `json:"venues"`
+}
+
 type Quote struct {
 	Symbol, Venue                                                  string
 	Bid, Ask, BidSize, AskSize, BidDepth, AskDepth, Last, LastSize int
@@ -364,6 +381,19 @@ func (this *StockfighterClient) GetQuote(venue, symbol string) (StockQuote, erro
 	return sq, nil
 }
 
+// Not Yet Implemented
+func (this *StockfighterClient) GetLevels() (string, error) {
+	req, err := http.NewRequest("GET", "https://www.stockfighter.io/gm/levels", nil)
+	req.Header.Add("X-Starfighter-Authorization", this.Api_key)
+	resp, err := this.httpclient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	return string(body), nil
+}
+
 func Setup() (sfc *StockfighterClient, vs *VenueStocks, err error) {
 	sfc = NewStockfighterClient(os.Getenv("STARFIGHTER_KEY"))
 	hb, err := sfc.GetHeartbeat()
@@ -376,8 +406,21 @@ func Setup() (sfc *StockfighterClient, vs *VenueStocks, err error) {
 		fmt.Fprintln(os.Stderr, hb.Error)
 		return
 	}
-	fmt.Fprintln(os.Stderr, "Raw venue is", os.Getenv("STOCKFIGHTER_VENUE"))
-	cv, err := sfc.CheckVenue(os.Getenv("STOCKFIGHTER_VENUE"))
+
+	venue := os.Getenv("STOCKFIGHTER_VENUE")
+	level := os.Getenv("STOCKFIGHTER_LEVEL")
+
+	fmt.Println("venue ", venue, " level ", level)
+
+	// Set up a level if it seems appropriate
+	if venue == "" || level != "" {
+		fmt.Fprintln(os.Stderr, "Need a STOCKFIGHTER_VENUE and a STOCKFIGHTER_LEVEL")
+		err = errors.New("Missing environment key")
+		return
+	}
+
+	fmt.Fprintln(os.Stderr, "Raw venue is", venue)
+	cv, err := sfc.CheckVenue(venue)
 	if err != nil || !cv.Ok {
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Connectivity broken", err)
@@ -389,7 +432,7 @@ func Setup() (sfc *StockfighterClient, vs *VenueStocks, err error) {
 	}
 	fmt.Fprintln(os.Stderr, "Venue is ", cv.Venue)
 	// Get stocks
-	vs_lit, err := sfc.GetVenueStocks(os.Getenv("STOCKFIGHTER_VENUE"))
+	vs_lit, err := sfc.GetVenueStocks(venue)
 	vs = &vs_lit
 	if err != nil || !vs.Ok {
 		if err != nil {
